@@ -1,3 +1,4 @@
+
 // Client side C/C++ program to demonstrate Socket programming
 #include <stdio.h>
 #include <sys/socket.h>
@@ -41,15 +42,39 @@ int main(int argc, char const *argv[])
         puts("CONNECT ERROR");
     }
     else{
-      printf("Message size: %d" , get_message_size());
+        create_message();
 
     }
     close(socket_fd);
 }
 
 char* create_message(){
-    char* message = malloc(get_message_size() + 1);
+    uint64_t message_size = get_message_size();
+    printf("Message size: %d\n", message_size);
+    char* message = malloc(message_size + 1);
+    message[message_size] = '\0';
+    char* curr_pos = message;
+
+    printf("Message: %s\n\n", message);
+    uint16_t path_size = strlen(FILE_PATH);
+    printf("Path size befoe htons: %d\n", path_size);
+    path_size = htons(path_size);
+    memcpy(curr_pos, &path_size, sizeof(path_size));
+    curr_pos += sizeof(path_size);
+    printf("Path size: %d\n", path_size);
+     printf("Message: %s\n\n", message);
+
+    memcpy(curr_pos, FILE_PATH, path_size);
+    curr_pos += path_size;
+    printf("Message: %s\n\n", message);
+
+
+
+
+    
+    
     return message;
+
 }
 
 
@@ -81,4 +106,3 @@ uint64_t get_message_size(){
     + get_file_size(FILE_PATH) + sizeof(uint64_t)
     + sizeof(TRANS_TYPE);
 }
-
