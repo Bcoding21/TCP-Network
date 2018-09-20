@@ -23,6 +23,8 @@ uint64_t get_message_size();
 
 char* create_message();
 
+char* get_file(char*);
+
 int main(int argc, char const *argv[])
 {
     int socket_fd = 0;
@@ -55,18 +57,29 @@ char* create_message(){
     message[message_size] = '\0';
     char* curr_pos = message;
 
-    printf("Message: %s\n\n", message);
     uint16_t path_size = strlen(FILE_PATH);
-    printf("Path size befoe htons: %d\n", path_size);
     path_size = htons(path_size);
     memcpy(curr_pos, &path_size, sizeof(path_size));
     curr_pos += sizeof(path_size);
-    printf("Path size: %d\n", path_size);
-     printf("Message: %s\n\n", message);
 
     memcpy(curr_pos, FILE_PATH, path_size);
     curr_pos += path_size;
-    printf("Message: %s\n\n", message);
+    
+    uint8_t trans_type = TRANS_TYPE;
+    memcpy(curr_pos, &trans_type, sizeof(trans_type));
+    curr_pos += sizeof(trans_type);
+
+    
+    uint64_t file_size = get_file_size(FILE_PATH);
+    memcpy(curr_pos, &file_size, sizeof(file_size));
+    curr_pos += sizeof(file_size);
+    
+
+    char* file = get_file(FILE_PATH);
+    memcpy(curr_pos, file, file_size);
+    curr_pos += file_size;
+
+    
 
 
 
@@ -79,24 +92,9 @@ char* create_message(){
 
 
 uint64_t get_file_size(char* file_name){
-    // opening the file in read mode 
-    FILE* fp = fopen(file_name, "r"); 
-  
-    // checking if the file exist or not 
-    if (fp == NULL) { 
-        printf("File Not Found!\n"); 
-        return 0; 
-    } 
-  
-    fseek(fp, 0L, SEEK_END); 
-  
-    // calculating the size of the file 
-    long int res = ftell(fp); 
-  
-    // closing the file 
-    fclose(fp); 
-  
-    return res; 
+    struct stat st;
+    stat(file_name, &st);
+    return st.st_size;  
 }
 
 
@@ -105,4 +103,18 @@ uint64_t get_message_size(){
     + strlen(FILE_PATH) + sizeof(uint16_t)
     + get_file_size(FILE_PATH) + sizeof(uint64_t)
     + sizeof(TRANS_TYPE);
+}
+
+char* get_file(char* file_name){
+    uint64_t file_size = get_file_size(file_name);
+    char* buffer = malloc(file_size + 1);
+    buffer[file_size] = '\0';
+    FILE* file = fopen(file_name, "r");
+    if (file == NULL){
+        puts("ERROR READING FILE");
+        exit(-1);
+    }
+    fread(buffer, sizeof(char), file_size, file);
+    puts(buffer);
+    return buffer;
 }
