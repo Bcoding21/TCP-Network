@@ -4,12 +4,23 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <math.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#define NO_FLAGS 0
 #define PORT 8888
-#define SERVER_ADDRESS "173.230.32.253"
+#define SERVER_ADDRESS "10.77.99.143"
+#define TO_NAME "hello.txt"
+#define FILE_PATH "test.txt"
+#define TRANS_TYPE 0
 
-char* get_int16_as_str(uint16_t);
 
-int create_client(char*, uint16_t);
+uint64_t get_file_size(char*);
+
+uint64_t get_message_size();
+
+char* create_message();
 
 int main(int argc, char const *argv[])
 {
@@ -30,45 +41,44 @@ int main(int argc, char const *argv[])
         puts("CONNECT ERROR");
     }
     else{
-        puts("CONNECTED");
+      printf("Message size: %d" , get_message_size());
+
     }
     close(socket_fd);
 }
 
-int create_client(char* ip, uint16_t port_number){
-  int sock = 0;
-
-  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-  {
-      printf("\n Socket creation error \n");
-      return -1;
-  }
-
-
-  struct sockaddr_in serv_addr;
-  memset(&serv_addr, 0, sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(port_number);
-
-  // Convert IPv4 and IPv6 addresses from text to binary form
-
-  if(inet_aton(ip, &serv_addr.sin_addr)<=0)
-  {
-      printf("\nInvalid address/ Address not supported \n");
-      return -1;
-  }
-  if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-  {
-      printf("\nConnection Failed \n");
-      return -1;
-  }
-  return sock;
+char* create_message(){
+    char* message = malloc(get_message_size() + 1);
+    return message;
 }
 
-char* get_int16_as_str(uint16_t number){
-  char* str_num = malloc( sizeof(number) + 1);
-  str_num[0] = (unsigned char)(number & 0x00FF);
-  str_num[1] = (unsigned char)(number & 0xFF00);
-  str_num[2] = '\0';
-  return str_num;
+
+uint64_t get_file_size(char* file_name){
+    // opening the file in read mode 
+    FILE* fp = fopen(file_name, "r"); 
+  
+    // checking if the file exist or not 
+    if (fp == NULL) { 
+        printf("File Not Found!\n"); 
+        return 0; 
+    } 
+  
+    fseek(fp, 0L, SEEK_END); 
+  
+    // calculating the size of the file 
+    long int res = ftell(fp); 
+  
+    // closing the file 
+    fclose(fp); 
+  
+    return res; 
 }
+
+
+uint64_t get_message_size(){
+    return strlen(TO_NAME) + sizeof(uint16_t) 
+    + strlen(FILE_PATH) + sizeof(uint16_t)
+    + get_file_size(FILE_PATH) + sizeof(uint64_t)
+    + sizeof(TRANS_TYPE);
+}
+
