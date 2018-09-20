@@ -15,7 +15,12 @@ uint8_t read_trans_type(int);
 
 uint64_t read_file_size(int);
 
-char* read_file(int);
+uint8_t read_trans_type(int);
+
+uint64_t read_file_size(int);
+
+char* read_file(int, uint64_t);
+
 
 int main(int argc, char *argv[]){
   if (argc < 2) {
@@ -54,6 +59,11 @@ int main(int argc, char *argv[]){
       uint16_t path_length = read_path_length(client_connection);
       char* path = read_path(client_connection, path_length);
       printf("Path size: %d, Path: %s\n", path_length, path);
+      uint8_t trans_type = read_trans_type(client_connection);
+      uint64_t file_size = read_file_size(client_connection);
+      printf("Trans type: %d\nFile size: %d\n", trans_type, file_size);
+      char* file = read_file(client_connection, file_size);
+      //puts(file);
       fflush(stdout);
     }
     
@@ -70,7 +80,7 @@ int main(int argc, char *argv[]){
 uint16_t read_path_length(int socket_fd){
   uint16_t path_size;
   read(socket_fd, &path_size, sizeof(path_size));
-  return htons(path_size);
+  return ntohs(path_size);
 }
 
 char* read_path(int socket_fd, int path_length){
@@ -80,8 +90,22 @@ char* read_path(int socket_fd, int path_length){
   return path;
 }
 
-uint8_t read_trans_type(int);
+uint8_t read_trans_type(int socket_fd){
+  uint8_t trans_type;
+  read(socket_fd, &trans_type, sizeof(trans_type));
+  return trans_type;
+}
 
-uint64_t read_file_size(int);
+uint64_t read_file_size(int socket_fd){
+  uint64_t file_size;
+  read(socket_fd, &file_size, sizeof(file_size));
+  return file_size;
 
-char* read_file(int);
+}
+
+char* read_file(int socket_fd, uint64_t file_size){
+  char* file = malloc(file_size + 1);
+  file[file_size] = '\0';
+  read(socket_fd, file, file_size);
+  return file;
+}

@@ -11,10 +11,10 @@
 
 #define NO_FLAGS 0
 #define PORT 8888
-#define SERVER_ADDRESS "10.77.99.143"
+#define SERVER_ADDRESS "10.26.98.192"
 #define TO_NAME "hello.txt"
 #define FILE_PATH "test.txt"
-#define TRANS_TYPE 0
+#define TRANS_TYPE 3
 
 
 uint64_t get_file_size(char*);
@@ -44,7 +44,9 @@ int main(int argc, char const *argv[])
         puts("CONNECT ERROR");
     }
     else{
-        create_message();
+        uint64_t message_size = get_message_size();
+        char* message = create_message();
+        send(socket_fd, message, message_size, NO_FLAGS);
 
     }
     close(socket_fd);
@@ -52,7 +54,6 @@ int main(int argc, char const *argv[])
 
 char* create_message(){
     uint64_t message_size = get_message_size();
-    printf("Message size: %d\n", message_size);
     char* message = malloc(message_size + 1);
     message[message_size] = '\0';
     char* curr_pos = message;
@@ -61,6 +62,7 @@ char* create_message(){
     path_size = htons(path_size);
     memcpy(curr_pos, &path_size, sizeof(path_size));
     curr_pos += sizeof(path_size);
+    path_size = htons(path_size);
 
     memcpy(curr_pos, FILE_PATH, path_size);
     curr_pos += path_size;
@@ -68,24 +70,22 @@ char* create_message(){
     uint8_t trans_type = TRANS_TYPE;
     memcpy(curr_pos, &trans_type, sizeof(trans_type));
     curr_pos += sizeof(trans_type);
-
     
     uint64_t file_size = get_file_size(FILE_PATH);
     memcpy(curr_pos, &file_size, sizeof(file_size));
     curr_pos += sizeof(file_size);
-    
 
     char* file = get_file(FILE_PATH);
     memcpy(curr_pos, file, file_size);
     curr_pos += file_size;
 
-    
+    uint16_t new_name_size = strlen(TO_NAME);
+    memcpy(curr_pos, &new_name_size, sizeof(new_name_size));
+    curr_pos += sizeof(new_name_size);
 
+    memcpy(curr_pos, TO_NAME, new_name_size);
+    curr_pos += new_name_size;
 
-
-
-    
-    
     return message;
 
 }
@@ -115,6 +115,5 @@ char* get_file(char* file_name){
         exit(-1);
     }
     fread(buffer, sizeof(char), file_size, file);
-    puts(buffer);
     return buffer;
 }
