@@ -7,13 +7,15 @@
 #include <inttypes.h>
 #include <string.h>
 
-uint16_t readBytesAsInt16(int);
+uint16_t read_path_length(int);
 
-int create_server(uint16_t);
+char* read_path(int, int);
 
-struct sockaddr_in create_socket_address(uint16_t);
+uint8_t read_trans_type(int);
 
-void run_server(int);
+uint64_t read_file_size(int);
+
+char* read_file(int);
 
 int main(int argc, char *argv[]){
   if (argc < 2) {
@@ -48,21 +50,38 @@ int main(int argc, char *argv[]){
     if ((client_connection = accept (socket_fd, (struct sockaddr*) &client_address,  &address_size)) < 0) {
       puts("ACCEPT ERROR");
     }
-    puts("CONNECTION ACCEPTED");
+    else{
+      uint16_t path_length = read_path_length(client_connection);
+      char* path = read_path(client_connection, path_length);
+      printf("Path size: %d, Path: %s\n", path_length, path);
+      fflush(stdout);
+    }
+    
+
+    
     if ( close (client_connection) < 0 ) {
         puts("CONNECTION CLOSE EROOR");
     }
   }
 
-
-
-
 }
 
-uint16_t readBytesAsInt16(int socket_id) {
-  unsigned char num[2];
-  read(socket_id,num,2);
-	uint16_t greaterBits = num[1];
-	uint8_t lowerBits = num[0];
-	return (greaterBits << 8) | lowerBits;
+
+uint16_t read_path_length(int socket_fd){
+  uint16_t path_size;
+  read(socket_fd, &path_size, sizeof(path_size));
+  return htons(path_size);
 }
+
+char* read_path(int socket_fd, int path_length){
+  char* path = malloc(path_length + 1);
+  path[path_length] = '\0';
+  read(socket_fd, path, path_length);
+  return path;
+}
+
+uint8_t read_trans_type(int);
+
+uint64_t read_file_size(int);
+
+char* read_file(int);
