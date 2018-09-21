@@ -35,16 +35,18 @@ char* read_file_name(int socket_fd, uint16_t name_length){
 }
 
 bool is_good_format(unsigned char* file, uint64_t file_size){
-  uint64_t i = 0;
-  while (i < file_size){
-    uint8_t type = file[i++];
+  unsigned char* start = file;
+  unsigned char end = file + file_size;
+  while (start < end){
+    uint8_t type = *(start++);
     if (!is_type(type)) { return false; }
     uint16_t bytes_read = (type) ? 
     read_format_one(file + i, file_size) :
     read_format_two(file + i, file_size);
     if (bytes_read == NO_BYTES_READ) { return false; }
-    i += bytes_read;
+    start += bytes_read;
   }
+  return true;
 }
 
 bool is_type(uint8_t type){
