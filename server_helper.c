@@ -36,13 +36,13 @@ char* read_file_name(int socket_fd, uint16_t name_length){
 
 bool is_good_format(unsigned char* file, uint64_t file_size){
   unsigned char* start = file;
-  unsigned char end = file + file_size;
+  unsigned char* end = file + file_size;
   while (start < end){
     uint8_t type = *(start++);
     if (!is_type(type)) { return false; }
     uint16_t bytes_read = (type) ? 
-    read_format_one(file + i, file_size) :
-    read_format_two(file + i, file_size);
+    get_format_one_byte_count(start, file_size) :
+    get_format_two_byte_count(start, file_size);
     if (bytes_read == NO_BYTES_READ) { return false; }
     start += bytes_read;
   }
@@ -54,11 +54,11 @@ bool is_type(uint8_t type){
 }
 
 
-uint16_t read_format_one(unsigned char* file, uint64_t file_size){
-  uint64_t start = (uint64_t)file;
+uint16_t get_format_one_byte_count(unsigned char* file, uint64_t file_size){
+  unsigned char* start = file;
   if (*(file++) != ' ') { return NO_BYTES_READ;}
   uint8_t amount = *(file++); 
-  uint16_t line_size = get_format_one_line_size(amount);
+  uint16_t line_size = calculate_format_one_len(amount);
   uint64_t ending = start + line_size;
   if (ending > file_size){ return NO_BYTES_READ; }
   for (int j = 0; j < amount; j++){
@@ -68,27 +68,26 @@ uint16_t read_format_one(unsigned char* file, uint64_t file_size){
   return (file - start); // return number of bytes read
 }
 
-uint16_t get_format_one_line_size(uint16_t amount){
+uint16_t calculate_format_one_len(uint16_t amount){
   uint8_t space_size = 1;
   return space_size + sizeof(amount) + space_size
   + amount * FORMAT_ONE_NUM_SIZE + (space_size * amount - 1);
 }
 
 
-uint16_t read_format_two(unsigned char* file, uint64_t file_size){
+uint16_t get_format_two_byte_count(unsigned char* file, uint64_t file_size){
   uint64_t start = (uint64_t)file;
   if (*(file++) != ' ') { return NO_BYTES_READ;}
   uint32_t amount = read_format_two_amount(file);
   file += FORMAT_TWO_AMOUNT_SIZE;
   if (*(file++) != ' ' ) { return NO_BYTES_READ; }
   for (int j = 0; j < amount; j++){
-    uint8_t bytes_read = parse_format_two_num(file);
+    uint8_t bytes_read = get_format_two_num_size(file);
     file += bytes_read;
-    if (*(file++) != ',') { return NO_BYTES_READ };
+    if (*(file++) != ',') { return NO_BYTES_READ; }
   }
   return file - start;
 }
-
 
 uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
   uint16_t number = greater_bits;
@@ -101,12 +100,11 @@ uint32_t read_format_two_amount(unsigned char* file){
   return atoi(amount_as_str);
 }
 
-uint8_t parse_format_two_num(unsigned char* file){
+uint8_t get_format_two_num_size(unsigned char* file){
   unsigned char* start = file;
 	while (!done_parsing_num(start, file++)) {}
 	return file - start;
 }
-
 
 bool done_parsing_num(unsigned char* start, unsigned char* curr_pos){
   return !isdigit(*curr_pos) || (curr_pos - start) < FORMAT_TWO_NUM_SIZE;

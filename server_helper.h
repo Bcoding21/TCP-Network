@@ -28,17 +28,17 @@ bool is_good_format(unsigned char*, uint64_t);
 
 bool is_type(uint8_t);
 
-uint16_t read_format_one(unsigned char*, uint64_t);
+uint16_t get_format_one_byte_count(unsigned char*, uint64_t);
 
-uint16_t read_format_two(unsigned char*, uint64_t);
+uint16_t get_format_two_byte_count(unsigned char*, uint64_t);
 
 uint16_t to_int16(uint8_t, uint8_t);
 
 uint32_t read_format_two_amount(unsigned char*);
 
-uint16_t get_format_one_line_size(uint16_t);
+uint16_t calculate_format_one_len(uint16_t);
 
-uint8_t parse_format_two_num(unsigned char*);
+uint8_t get_format_two_num_size(unsigned char*);
 
 bool done_parsing_num(unsigned char*, unsigned char*);
 
