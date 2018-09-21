@@ -11,7 +11,7 @@
 
 #define NO_FLAGS 0
 #define PORT 8888
-#define SERVER_ADDRESS "10.26.98.192"
+#define SERVER_ADDRESS "173.230.32.253"
 #define TO_NAME "hello.txt"
 #define FILE_PATH "test.txt"
 #define TRANS_TYPE 3
@@ -53,38 +53,41 @@ int main(int argc, char const *argv[])
 }
 
 char* create_message(){
+    // create message array
     uint64_t message_size = get_message_size();
     char* message = malloc(message_size + 1);
     message[message_size] = '\0';
     char* curr_pos = message;
-
-    uint16_t path_size = strlen(FILE_PATH);
-    path_size = htons(path_size);
-    memcpy(curr_pos, &path_size, sizeof(path_size));
-    curr_pos += sizeof(path_size);
-    path_size = htons(path_size);
-
-    memcpy(curr_pos, FILE_PATH, path_size);
-    curr_pos += path_size;
     
     uint8_t trans_type = TRANS_TYPE;
     memcpy(curr_pos, &trans_type, sizeof(trans_type));
     curr_pos += sizeof(trans_type);
     
     uint64_t file_size = get_file_size(FILE_PATH);
+    printf("File size: %d\n", file_size);
+    file_size = htonl(file_size);
+    printf("File size: %d\n", file_size);
     memcpy(curr_pos, &file_size, sizeof(file_size));
+    file_size = ntohl(file_size);
+    printf("File size: %d\n", file_size);
     curr_pos += sizeof(file_size);
 
     char* file = get_file(FILE_PATH);
     memcpy(curr_pos, file, file_size);
     curr_pos += file_size;
 
-    uint16_t new_name_size = strlen(TO_NAME);
-    memcpy(curr_pos, &new_name_size, sizeof(new_name_size));
-    curr_pos += sizeof(new_name_size);
+    uint16_t file_name_size = strlen(TO_NAME);
+    printf("Name size: %d\n", file_name_size);
+    file_name_size = htons(file_name_size);
+    printf("Name size: %d\n", file_name_size);
 
-    memcpy(curr_pos, TO_NAME, new_name_size);
-    curr_pos += new_name_size;
+    memcpy(curr_pos, &file_name_size, sizeof(file_name_size));
+    file_name_size = ntohs(file_name_size);
+    printf("Name size: %d\n", file_name_size);
+    curr_pos += sizeof(file_name_size);
+
+    memcpy(curr_pos, TO_NAME, file_name_size);
+    curr_pos += file_name_size;
 
     return message;
 
@@ -100,7 +103,6 @@ uint64_t get_file_size(char* file_name){
 
 uint64_t get_message_size(){
     return strlen(TO_NAME) + sizeof(uint16_t) 
-    + strlen(FILE_PATH) + sizeof(uint16_t)
     + get_file_size(FILE_PATH) + sizeof(uint64_t)
     + sizeof(TRANS_TYPE);
 }

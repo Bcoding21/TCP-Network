@@ -21,6 +21,10 @@ uint64_t read_file_size(int);
 
 char* read_file(int, uint64_t);
 
+uint16_t read_file_name_length(int);
+
+char* read_file_name(int, uint16_t);
+
 
 int main(int argc, char *argv[]){
   if (argc < 2) {
@@ -28,8 +32,8 @@ int main(int argc, char *argv[]){
     exit(1);
   }
 
-  int socket_fd = 0;
-  if ((socket_fd = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
+  int server = 0;
+  if ((server = socket (AF_INET, SOCK_STREAM, 0)) < 0) {
     puts("SOCKET FAILURE");
   }
 
@@ -40,41 +44,47 @@ int main(int argc, char *argv[]){
   server_address.sin_port = htons(port);
 
 
-  if (bind (socket_fd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
+  if (bind (server, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
     puts("BIND FAILURE");
   }
 
-  if (listen(socket_fd, 3) < 0){
+  if (listen(server, 3) < 0){
     puts("LISTEN ERROR");
   }
 
   while (1){
     struct sockaddr_in client_address;
     int address_size = sizeof(client_address);
-    int client_connection = 0;
-    if ((client_connection = accept (socket_fd, (struct sockaddr*) &client_address,  &address_size)) < 0) {
+    int client = 0;
+    if ((client = accept (server, (struct sockaddr*) &client_address,  &address_size)) < 0) {
       puts("ACCEPT ERROR");
     }
     else{
-      uint16_t path_length = read_path_length(client_connection);
-      char* path = read_path(client_connection, path_length);
-      printf("Path size: %d, Path: %s\n", path_length, path);
-      uint8_t trans_type = read_trans_type(client_connection);
-      uint64_t file_size = read_file_size(client_connection);
-      printf("Trans type: %d\nFile size: %d\n", trans_type, file_size);
-      char* file = read_file(client_connection, file_size);
-      //puts(file);
-      fflush(stdout);
+      uint8_t trans_type = read_trans_type(client);
+      printf("Trans type: %d\n", trans_type);
+
+      uint64_t file_size = read_file_size(client);
+      printf("File size: %d\n", file_size);
+
+      char* file = read_file(client, file_size);
+      printf("File contents: %s\n", file);
+
+      uint64_t name_length = read_file_name_length(client);
+      printf("File name length %d\n", name_length);
+
+      char* file_name = read_file_name(client, name_length);
+      printf("File name: %s\n", file_name);
     }
     
 
     
-    if ( close (client_connection) < 0 ) {
+    if ( close (client) < 0 ) {
         puts("CONNECTION CLOSE EROOR");
     }
   }
 
 }
+
 
 
 uint16_t read_path_length(int socket_fd){
@@ -99,7 +109,7 @@ uint8_t read_trans_type(int socket_fd){
 uint64_t read_file_size(int socket_fd){
   uint64_t file_size;
   read(socket_fd, &file_size, sizeof(file_size));
-  return file_size;
+  return ntohl(file_size);
 
 }
 
@@ -108,4 +118,17 @@ char* read_file(int socket_fd, uint64_t file_size){
   file[file_size] = '\0';
   read(socket_fd, file, file_size);
   return file;
+}
+
+uint16_t read_file_name_length(int socket_fd){
+  uint16_t name_length;
+  read(socket_fd, &name_length, sizeof(name_length));
+  return ntohs(name_length);
+}
+
+char* read_file_name(int socket_fd, uint16_t name_length){
+  char* new_name = malloc(name_length + 1);
+  new_name[name_length] = '\0';
+  read(socket_fd, new_name, name_length);
+  return new_name;
 }
