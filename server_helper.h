@@ -2,14 +2,44 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <ctype.h>
 #include <unistd.h> /* misc. UNIX functions */
+
+#define FORMAT_ONE_TYPE 0
+#define FORMAT_TWO_TYPE 1
+#define FORMAT_ONE_NUM_SIZE 2 // bytes
+#define FORMAT_TWO_NUM_SIZE 5 // characters
+#define FORMAT_ONE_AMOUNT_SIZE 1 // bytes
+#define FORMAT_TWO_AMOUNT_SIZE 3 // bytes
+#define NO_BYTES_READ -1
 
 uint8_t read_trans_type(int);
 
 uint64_t read_file_size(int);
 
-char* read_file(int, uint64_t);
+unsigned char* read_file(int, uint64_t);
 
 uint16_t read_file_name_length(int);
 
 char* read_file_name(int, uint16_t);
+
+bool is_good_format(unsigned char*, uint64_t);
+
+bool is_type(uint8_t);
+
+uint16_t read_format_one(unsigned char*, uint64_t);
+
+uint16_t read_format_two(unsigned char*, uint64_t);
+
+uint16_t to_int16(uint8_t, uint8_t);
+
+uint32_t read_format_two_amount(unsigned char*);
+
+uint16_t get_format_one_line_size(uint16_t);
+
+uint8_t parse_format_two_num(unsigned char*);
+
+bool done_parsing_num(unsigned char*, unsigned char*);
+
+
