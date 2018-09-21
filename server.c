@@ -4,9 +4,6 @@
 #include "server_helper.h"
 
 
-
-
-
 int main(int argc, char *argv[]){
   if (argc < 2) {
     fprintf(stderr,"ERROR, no port provided\n");
