@@ -11,7 +11,7 @@ uint8_t read_trans_type(int socket_fd){
 uint64_t read_file_size(int socket_fd){
   uint64_t file_size;
   read(socket_fd, &file_size, sizeof(file_size));
-  return ntohl(file_size);
+  return 0;
 }
 
 unsigned char* read_file(int socket_fd, uint64_t file_size){
@@ -24,7 +24,7 @@ unsigned char* read_file(int socket_fd, uint64_t file_size){
 uint16_t read_file_name_length(int socket_fd){
   uint16_t name_length;
   read(socket_fd, &name_length, sizeof(name_length));
-  return ntohs(name_length);
+  return 0;
 }
 
 char* read_file_name(int socket_fd, uint16_t name_length){
@@ -34,59 +34,57 @@ char* read_file_name(int socket_fd, uint16_t name_length){
   return new_name;
 }
 
-bool is_good_format(unsigned char* file, uint64_t file_size){
-  unsigned char* start = file;
-  unsigned char* end = file + file_size;
-  while (start < end){
-    uint8_t type = *(start++);
-    if (!is_type(type)) { return false; }
-    uint16_t bytes_read = (type) ? 
-    get_format_one_byte_count(start, file_size) :
-    get_format_two_byte_count(start, file_size);
+/**
+ * 
+ * */
+bool is_good_format(unsigned char* curr_file_pos, unsigned char* end){
+  while (curr_file_pos < end) {
+    uint8_t type = *curr_file_pos++;
+	if (type == (uint8_t)'\n') { continue; }
+	if (!is_type(type)) { return false; }
+    int16_t bytes_read = (type == FORMAT_ONE_TYPE) ? 
+    get_format_one_byte_count(curr_file_pos, end) :
+    get_format_two_byte_count(curr_file_pos, end) ;
     if (bytes_read == NO_BYTES_READ) { return false; }
-    start += bytes_read;
+    curr_file_pos += bytes_read;
   }
-  return true;
+  return curr_file_pos == end;
 }
 
-bool is_type(uint8_t type){
+bool is_type(unsigned char type){
   return type == FORMAT_ONE_TYPE || type == FORMAT_TWO_TYPE;
 }
 
-
-uint16_t get_format_one_byte_count(unsigned char* file, uint64_t file_size){
-  unsigned char* start = file;
-  if (*(file++) != ' ') { return NO_BYTES_READ;}
-  uint8_t amount = *(file++); 
-  uint16_t line_size = calculate_format_one_len(amount);
-  uint64_t ending = start + line_size;
-  if (ending > file_size){ return NO_BYTES_READ; }
-  for (int j = 0; j < amount; j++){
-    if (*(file++) == ' '){ return NO_BYTES_READ; }
-    file += FORMAT_ONE_NUM_SIZE;
-  }
-  return (file - start); // return number of bytes read
+uint16_t get_format_one_byte_count(unsigned char* curr_file_pos, unsigned char* file_end){
+  uint8_t amount = *curr_file_pos;
+  unsigned char* line_end = curr_file_pos + get_format_one_length(amount);
+  return (line_end > file_end) ? NO_BYTES_READ : (line_end - curr_file_pos);
 }
 
-uint16_t calculate_format_one_len(uint16_t amount){
-  uint8_t space_size = 1;
-  return space_size + sizeof(amount) + space_size
-  + amount * FORMAT_ONE_NUM_SIZE + (space_size * amount - 1);
+uint16_t get_format_one_length(uint8_t amount){
+  return  sizeof(amount) + amount * FORMAT_ONE_NUM_SIZE;
 }
 
-
-uint16_t get_format_two_byte_count(unsigned char* file, uint64_t file_size){
-  uint64_t start = (uint64_t)file;
-  if (*(file++) != ' ') { return NO_BYTES_READ;}
-  uint32_t amount = read_format_two_amount(file);
-  file += FORMAT_TWO_AMOUNT_SIZE;
-  if (*(file++) != ' ' ) { return NO_BYTES_READ; }
-  for (int j = 0; j < amount; j++){
-    uint8_t bytes_read = get_format_two_num_size(file);
-    file += bytes_read;
-    if (*(file++) != ',') { return NO_BYTES_READ; }
+uint16_t get_format_two_byte_count(unsigned char* curr_file_pos, unsigned char* file_end){
+	unsigned char* line_pos = curr_file_pos;
+  uint32_t amount = get_str_as_int32(line_pos, line_pos + FORMAT_TWO_AMOUNT_SIZE);
+  line_pos += FORMAT_TWO_AMOUNT_SIZE;
+  for (int i = 0; i < amount; i++){
+    uint8_t bytes_read = get_format_two_num_size(line_pos);
+    line_pos += bytes_read;
+	if (is_end_of_line(*line_pos)) { break; }
+	if (!is_end_of_number(*line_pos)) { return NO_BYTES_READ; }
+	line_pos++;
   }
-  return file - start;
+  return line_pos - curr_file_pos;
+}
+
+bool is_end_of_line(unsigned char c) {
+	return is_type(c) || c == '\n';
+}
+
+bool is_end_of_number(unsigned char c) {
+	return c == ',';
 }
 
 uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
@@ -94,20 +92,25 @@ uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
   return (number << 8) | lower_bits;
 }
 
-uint32_t read_format_two_amount(unsigned char* file){
-  char amount_as_str[FORMAT_TWO_AMOUNT_SIZE];
-  memcpy(amount_as_str, file, FORMAT_TWO_AMOUNT_SIZE);
-  return atoi(amount_as_str);
+uint32_t get_str_as_int32(unsigned char* begin, unsigned char* end){
+	uint8_t num_chars = end - begin;
+	char* num_as_str = malloc(num_chars + 1);
+	num_as_str[num_chars] = '\0';
+	memcpy(num_as_str, begin, num_chars);
+	uint32_t num =  atoi(num_as_str);
+	free(num_as_str);
+	return num;
 }
 
-uint8_t get_format_two_num_size(unsigned char* file){
-  unsigned char* start = file;
-	while (!done_parsing_num(start, file++)) {}
-	return file - start;
+uint8_t get_format_two_num_size(unsigned char* curr_file_pos){
+  unsigned char* start = curr_file_pos;
+  while (!done_parsing_num(start, curr_file_pos)) { curr_file_pos++; }
+  return curr_file_pos - start;
 }
 
 bool done_parsing_num(unsigned char* start, unsigned char* curr_pos){
-  return !isdigit(*curr_pos) || (curr_pos - start) < FORMAT_TWO_NUM_SIZE;
+	char c = *curr_pos;
+	uint64_t bytes_read = curr_pos - start;
+	return !isdigit(c) || bytes_read >= FORMAT_TWO_NUM_SIZE;
 }
-
 
