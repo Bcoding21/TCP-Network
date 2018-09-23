@@ -6,8 +6,8 @@
 #include <ctype.h>
 #include <unistd.h> 
 
-#define FORMAT_ONE_TYPE "0"
-#define FORMAT_TWO_TYPE "1"
+#define FORMAT_ONE_TYPE 0
+#define FORMAT_TWO_TYPE 1
 #define FORMAT_ONE_NUM_SIZE 2 // bytes
 #define FORMAT_TWO_NUM_SIZE 5 // characters
 #define FORMAT_ONE_AMOUNT_SIZE 1 // bytes
