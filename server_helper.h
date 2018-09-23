@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <sys/socket.h> /* socket definitions */
+#include <sys/types.h> /* socket types */
+#include <arpa/inet.h>
 #include <unistd.h> 
 
 #define FORMAT_ONE_TYPE 0
@@ -13,14 +16,18 @@
 #define FORMAT_ONE_AMOUNT_SIZE 1 // bytes
 #define FORMAT_TWO_AMOUNT_SIZE 3 // bytes
 #define NO_BYTES_READ -1
+#define SUCCESS_MESSAGE "Success"
+#define ERROR_MESSAGE "Format error"
+#define NO_FLAGS 0
 
-struct Message {
+typedef struct Message {
     uint8_t trans_type;
     uint64_t file_size;
     unsigned char* file;
     uint64_t name_length;
     unsigned char* file_name;
-};
+}Message;
+
 
 uint8_t read_trans_type(int);
 
@@ -55,5 +62,11 @@ uint32_t get_str_as_int32(unsigned char*, unsigned char*);
 uint8_t get_format_two_num_size(unsigned char*);
 
 bool done_parsing_num(unsigned char*, unsigned char*);
+
+Message read_message(int);
+
+void run_server(int);
+
+int create_server(uint16_t);
 
 

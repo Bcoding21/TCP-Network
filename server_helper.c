@@ -114,3 +114,62 @@ uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
   return (number << 8) | lower_bits;
 }
 
+Message read_message(int socket_fd){
+  Message message;
+  message.trans_type = read_trans_type(socket_fd);
+  message.file_size = read_file_size(socket_fd);
+  message.file = read_file(socket_fd, message.file_size);
+  message.name_length = read_file_name_length(socket_fd);
+  message.file_name = read_file_name(socket_fd, message.name_length);
+  return message;
+}
+
+int create_server(uint16_t port_number){
+  int server = 0;
+	if ((server = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		puts("SOCKET FAILURE");
+	}
+
+	struct sockaddr_in server_address;
+	server_address.sin_family = AF_INET;
+	server_address.sin_addr.s_addr = htonl(INADDR_ANY);
+	server_address.sin_port = htons(port_number);
+
+
+	if (bind(server, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
+		puts("BIND FAILURE");
+	}
+  return server;
+}
+
+void run_server(int server_socket_fd) {
+  if (listen(server_socket_fd, 3) < 0) {
+		puts("LISTEN ERROR");
+	}
+
+  	struct sockaddr_in client_address;
+		int address_size = sizeof(client_address);
+		int client = 0;
+
+  	while (1) {
+		if ((client = accept(server_socket_fd, (struct sockaddr*) &client_address, &address_size)) < 0) {
+			puts("ACCEPT ERROR");
+		}
+		else {
+			Message message = read_message(client);
+			if (is_good_format(message.file, message.file + message.file_size)){
+				send(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE), NO_FLAGS);
+			}
+			else{
+				send(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE), NO_FLAGS);
+			}
+			
+		}
+
+		if (close(client) < 0) {
+			puts("CONNECTION CLOSE EROOR");
+		}
+	}
+
+
+}
