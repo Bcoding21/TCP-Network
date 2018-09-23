@@ -33,9 +33,7 @@ char* read_file_name(int socket_fd, uint16_t name_length){
   return new_name;
 }
 
-/**
- * 
- * */
+
 bool is_good_format(unsigned char* curr_file_pos, unsigned char* end){
   while (curr_file_pos < end) {
     uint8_t type = *curr_file_pos++;
@@ -78,6 +76,31 @@ uint16_t get_format_two_byte_count(unsigned char* curr_file_pos, unsigned char* 
   return line_pos - curr_file_pos;
 }
 
+uint32_t get_str_as_int32(unsigned char* begin, unsigned char* end){
+	uint8_t num_chars = end - begin;
+	char* num_as_str = malloc(num_chars + 1);
+	num_as_str[num_chars] = '\0';
+	memcpy(num_as_str, begin, num_chars);
+	uint32_t num =  atoi(num_as_str);
+	free(num_as_str);
+	return num;
+}
+
+
+uint8_t get_format_two_num_size(unsigned char* curr_file_pos){
+  unsigned char* start = curr_file_pos;
+  while (!done_parsing_num(start, curr_file_pos)) { curr_file_pos++; }
+  return curr_file_pos - start;
+}
+
+
+bool done_parsing_num(unsigned char* start, unsigned char* curr_pos){
+	char c = *curr_pos;
+	uint64_t bytes_read = curr_pos - start;
+	return !isdigit(c) || bytes_read >= FORMAT_TWO_NUM_SIZE;
+}
+
+
 bool is_end_of_line(unsigned char c) {
 	return is_type(c) || c == '\n';
 }
@@ -89,27 +112,5 @@ bool is_end_of_number(unsigned char c) {
 uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
   uint16_t number = greater_bits;
   return (number << 8) | lower_bits;
-}
-
-uint32_t get_str_as_int32(unsigned char* begin, unsigned char* end){
-	uint8_t num_chars = end - begin;
-	char* num_as_str = malloc(num_chars + 1);
-	num_as_str[num_chars] = '\0';
-	memcpy(num_as_str, begin, num_chars);
-	uint32_t num =  atoi(num_as_str);
-	free(num_as_str);
-	return num;
-}
-
-uint8_t get_format_two_num_size(unsigned char* curr_file_pos){
-  unsigned char* start = curr_file_pos;
-  while (!done_parsing_num(start, curr_file_pos)) { curr_file_pos++; }
-  return curr_file_pos - start;
-}
-
-bool done_parsing_num(unsigned char* start, unsigned char* curr_pos){
-	char c = *curr_pos;
-	uint64_t bytes_read = curr_pos - start;
-	return !isdigit(c) || bytes_read >= FORMAT_TWO_NUM_SIZE;
 }
 
