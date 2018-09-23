@@ -55,8 +55,6 @@ uint16_t to_int16(uint8_t, uint8_t);
 
 uint16_t get_format_one_length(uint8_t);
 
-uint32_t read_format_two_amount(unsigned char*);
-
 uint32_t get_str_as_int32(unsigned char*, unsigned char*);
 
 uint8_t get_format_two_num_size(unsigned char*);

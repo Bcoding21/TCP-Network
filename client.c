@@ -13,8 +13,9 @@
 #define PORT 8888
 #define SERVER_ADDRESS "173.230.32.253"
 #define TO_NAME "hello.txt"
-#define FILE_PATH "test.txt"
+#define FILE_PATH "test3.bin"
 #define TRANS_TYPE 3
+#define RESPONSE_SIZE 50
 
 
 uint64_t get_file_size(char*);
@@ -47,7 +48,9 @@ int main(int argc, char const *argv[])
         uint64_t message_size = get_message_size();
         char* message = create_message();
         send(socket_fd, message, message_size, NO_FLAGS);
-
+        unsigned char response_message[RESPONSE_SIZE];
+        recv(socket_fd, response_message, RESPONSE_SIZE, NO_FLAGS);
+        puts(response_message);
     }
     close(socket_fd);
 }
@@ -64,12 +67,9 @@ char* create_message(){
     curr_pos += sizeof(trans_type);
     
     uint64_t file_size = get_file_size(FILE_PATH);
-    printf("File size: %d\n", file_size);
     file_size = htonl(file_size);
-    printf("File size: %d\n", file_size);
     memcpy(curr_pos, &file_size, sizeof(file_size));
     file_size = ntohl(file_size);
-    printf("File size: %d\n", file_size);
     curr_pos += sizeof(file_size);
 
     char* file = get_file(FILE_PATH);
@@ -77,29 +77,17 @@ char* create_message(){
     curr_pos += file_size;
 
     uint16_t file_name_size = strlen(TO_NAME);
-    printf("Name size: %d\n", file_name_size);
     file_name_size = htons(file_name_size);
-    printf("Name size: %d\n", file_name_size);
 
     memcpy(curr_pos, &file_name_size, sizeof(file_name_size));
     file_name_size = ntohs(file_name_size);
-    printf("Name size: %d\n", file_name_size);
     curr_pos += sizeof(file_name_size);
 
     memcpy(curr_pos, TO_NAME, file_name_size);
     curr_pos += file_name_size;
 
     return message;
-
 }
-
-
-uint64_t get_file_size(char* file_name){
-    struct stat st;
-    stat(file_name, &st);
-    return st.st_size;  
-}
-
 
 uint64_t get_message_size(){
     return strlen(TO_NAME) + sizeof(uint16_t) 
@@ -118,4 +106,10 @@ char* get_file(char* file_name){
     }
     fread(buffer, sizeof(char), file_size, file);
     return buffer;
+}
+
+uint64_t get_file_size(char* file_name){
+    struct stat st;
+    stat(file_name, &st);
+    return st.st_size;  
 }
