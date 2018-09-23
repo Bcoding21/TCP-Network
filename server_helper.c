@@ -157,7 +157,9 @@ void run_server(int server_socket_fd) {
 		}
 		else {
 			Message message = read_message(client);
-			if (is_good_format(message.file, message.file + message.file_size)){
+      unsigned char* file_begin = message.file;
+      unsigned char* file_end = message.file + message.file_size;
+			if (is_good_format(file_begin, file_end)){
 				send(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE), NO_FLAGS);
 			}
 			else{
