@@ -38,10 +38,12 @@ void run_server(int server_socket_fd) {
       bool is_ok = is_good_format(file_begin, file_end);
 			if (is_ok){
 				send(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE), NO_FLAGS);
+        transform_and_write(message.trans_type, message.file, message.file_size, message.file_name);
 			}
 			else{
 				send(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE), NO_FLAGS);
 			}
+      
 		}
 		if (close(client) < 0) {
 			puts("CONNECTION CLOSE EROOR");
@@ -165,14 +167,165 @@ uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
 Message read_message(int socket_fd){
   Message message;
   message.trans_type = read_trans_type(socket_fd);
-  printf("Trans type: %d\n", message.trans_type);
   message.file_size = read_file_size(socket_fd);
-  printf("File size: %d\n", message.file_size);
   message.file = read_file(socket_fd, message.file_size);
-  printf("File content: %s\n", message.file);
   message.name_length = read_file_name_length(socket_fd);
   message.file_name = read_file_name(socket_fd, message.name_length);
   fflush(stdout);
   return message;
 }
 
+void transform_and_write(uint8_t translation_option, unsigned char* file, uint64_t file_size, unsigned char* file_name){
+
+  unsigned char* file_end = file + file_size;
+
+  FILE* out = fopen(file_name, "w");
+  if (!fopen){
+    puts("CANT OPEN FILE");
+    return;
+  }
+
+  switch(translation_option){
+
+    case NO_TRANSLATION:
+      return;
+    
+    case FORMAT_ONE_TO_TWO:
+      write_one_to_two(file, file_end, out);
+      return;
+
+    case FORMAT_TWO_TO_ONE:
+      write_two_to_one(file, file_end, out);
+      return;
+
+    case SWAP_FORMATS:
+      write_swapped(file, file_end, out);
+      return;
+    
+    default:
+      return;
+
+  }
+
+}
+
+uint16_t read_int16(unsigned char** file) {
+	uint16_t higher_bits = *(*file)++;
+	uint8_t lower_bits = *(*file)++;
+	higher_bits <<= 8;
+	uint16_t result = higher_bits | lower_bits;
+	return result;
+}
+
+uint8_t get_num_digits(uint8_t number) {
+	uint8_t digit_count = 0;
+	while (number != 0) {
+		digit_count++;
+		number /= 10;
+	}
+	return digit_count;
+}
+
+unsigned char* to_three_byte_str(uint8_t number) {
+	uint8_t num_digits = get_num_digits(number);
+	char* str_num = malloc(FORMAT_TWO_AMOUNT_SIZE + 1);
+	str_num[FORMAT_TWO_AMOUNT_SIZE] = '\0';
+	memset(str_num, '0', FORMAT_TWO_AMOUNT_SIZE);
+	int index = FORMAT_TWO_AMOUNT_SIZE - 1;
+	for (int i = 0; i < num_digits; i++) {
+		str_num[index] = (number % 10) + '0'; // int digit to char
+		number /= 10;
+	}
+	return str_num;
+}
+
+void write_one_to_two(unsigned char* curr_pos, unsigned char* file_end, FILE* file) {
+
+	while (curr_pos < file_end) {
+		uint8_t type = *curr_pos++;
+		if (type == FORMAT_ONE_TYPE) {
+			uint8_t amount = *curr_pos++;
+			printf("%s ", to_three_byte_str(amount));
+			for (int i = 0; i < amount - 1; i++) {
+				printf("%d,", read_int16(&curr_pos));
+			}
+			printf("%d\n", read_int16(&curr_pos));
+		}
+		else if (type == FORMAT_TWO_TYPE) {
+			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
+			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
+			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
+			printf("%s ", amount);
+			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
+			while (!is_type(*curr_pos)) {
+				printf("%c", *curr_pos++);
+			}
+			printf("%c", '\n');
+		}
+	}
+}
+
+
+void write_two_to_one(unsigned char* curr_pos, unsigned char* file_end, FILE* file) {
+
+	while (curr_pos < file_end) {
+		uint8_t type = *curr_pos++;
+		if (type == FORMAT_ONE_TYPE) {
+			uint8_t amount = *curr_pos++;
+			printf("%s ", to_three_byte_str(amount));
+			for (int i = 0; i < amount - 1; i++) {
+				printf("%d ", read_int16(&curr_pos));
+			}
+			printf("%d\n", read_int16(&curr_pos));
+		}
+		else if (type == FORMAT_TWO_TYPE) {
+			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
+			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
+			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
+			printf("%s ", amount);
+			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
+			while (!is_type(*curr_pos)) {
+				char c = *curr_pos++;
+				if (c == ',') {
+					printf("%c", ' ');
+				}
+				else {
+					printf("%c", c);
+				}
+			}
+			printf("%c", '\n');
+		}
+	}
+}
+
+void write_swapped(unsigned char* curr_pos, unsigned char* file_end, FILE* file) {
+
+	while (curr_pos < file_end) {
+		uint8_t type = *curr_pos++;
+		if (type == FORMAT_ONE_TYPE) {
+			uint8_t amount = *curr_pos++;
+			printf("%s ", to_three_byte_str(amount));
+			for (int i = 0; i < amount - 1; i++) {
+				printf("%d,", read_int16(&curr_pos));
+			}
+			printf("%d\n", read_int16(&curr_pos));
+		}
+		else if (type == FORMAT_TWO_TYPE) {
+			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
+			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
+			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
+			printf("%s ", amount);
+			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
+			while (!is_type(*curr_pos)) {
+				char c = *curr_pos++;
+				if (c == ',') {
+					printf("%c", ' ');
+				}
+				else {
+					printf("%c", c);
+				}
+			}
+			printf("%c", '\n');
+		}
+	}
+}

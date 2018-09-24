@@ -11,10 +11,10 @@
 
 #define NO_FLAGS 0
 #define PORT 8888
-#define SERVER_ADDRESS "173.230.32.253"
-#define TO_NAME "hello.txt"
-#define FILE_PATH "test3.bin"
-#define TRANS_TYPE 3
+#define SERVER_ADDRESS "10.26.98.192" 
+#define TO_NAME "hello.txt" // file will be named this on the server
+#define FILE_PATH "test1.bin" // file to send to the server
+#define TRANS_TYPE 1 // translate option
 #define RESPONSE_SIZE 50
 
 
@@ -56,20 +56,22 @@ int main(int argc, char const *argv[])
 }
 
 char* create_message(){
-    // create message array
+    // create array to be sent to the server
     uint64_t message_size = get_message_size();
     char* message = malloc(message_size + 1);
     message[message_size] = '\0';
-    char* curr_pos = message;
+    char* curr_pos = message; // keep track of where we are in the array
+                              // because we will increment as we add data
     
-    uint8_t trans_type = TRANS_TYPE;
-    memcpy(curr_pos, &trans_type, sizeof(trans_type));
+
+    uint8_t trans_type = TRANS_TYPE; 
+    memcpy(curr_pos, &trans_type, sizeof(trans_type)); // params (destination, source, num bytes to read)
     curr_pos += sizeof(trans_type);
     
     uint64_t file_size = get_file_size(FILE_PATH);
-    file_size = htonl(file_size);
+    file_size = htonl(file_size); // reorder arrangement of bytes
     memcpy(curr_pos, &file_size, sizeof(file_size));
-    file_size = ntohl(file_size);
+    file_size = ntohl(file_size); // put it back
     curr_pos += sizeof(file_size);
 
     char* file = get_file(FILE_PATH);
@@ -78,7 +80,6 @@ char* create_message(){
 
     uint16_t file_name_size = strlen(TO_NAME);
     file_name_size = htons(file_name_size);
-
     memcpy(curr_pos, &file_name_size, sizeof(file_name_size));
     file_name_size = ntohs(file_name_size);
     curr_pos += sizeof(file_name_size);
@@ -104,7 +105,7 @@ char* get_file(char* file_name){
         puts("ERROR READING FILE");
         exit(-1);
     }
-    fread(buffer, sizeof(char), file_size, file);
+    fread(buffer, sizeof(*file_name), file_size, file);
     return buffer;
 }
 

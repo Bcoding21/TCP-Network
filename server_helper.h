@@ -19,6 +19,11 @@
 #define SUCCESS_MESSAGE "Success"
 #define ERROR_MESSAGE "Format error"
 #define NO_FLAGS 0
+#define NO_TRANSLATION 0
+#define FORMAT_ONE_TO_TWO 1
+#define FORMAT_TWO_TO_ONE 2
+#define SWAP_FORMATS 3
+
 
 typedef struct Message {
     uint8_t trans_type;
@@ -67,4 +72,20 @@ void run_server(int);
 
 int create_server(uint16_t);
 
+void transform_and_write(uint8_t, unsigned char*, uint64_t, unsigned char*);
 
+void write_one_to_two(unsigned char*, unsigned char*, FILE*);
+
+void write_two_to_one(unsigned char*, unsigned char*, FILE*);
+
+void write_swapped(unsigned char*, unsigned char*, FILE*);
+
+unsigned char* to_format_two_amount(uint8_t);
+
+uint8_t get_num_digits(uint8_t);
+
+uint16_t to_int16(uint8_t, uint8_t);
+
+unsigned char* int_to_str(uint16_t);
+
+uint16_t read_int16(unsigned char**);
