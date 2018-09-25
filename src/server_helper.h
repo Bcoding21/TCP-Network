@@ -7,7 +7,7 @@
 #include <sys/socket.h> /* socket definitions */
 #include <sys/types.h> /* socket types */
 #include <arpa/inet.h>
-#include <unistd.h> 
+#include <unistd.h>
 
 #define FORMAT_ONE_TYPE 0
 #define FORMAT_TWO_TYPE 1

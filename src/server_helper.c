@@ -191,31 +191,28 @@ void transform_and_write(uint8_t translation_option, unsigned char* file, uint64
     puts("CANT OPEN FILE");
     return;
   }
+
   unsigned char* file_end = file + file_size;
-  switch(translation_option){
 
-    case NO_TRANSLATION:
-      return;
-
-    case FORMAT_ONE_TO_TWO:
-      write_one_to_two(file, file_end, out);
-      return;
-
-    case FORMAT_TWO_TO_ONE:
-      write_two_to_one(file, file_end, out);
-      return;
-
-    case SWAP_FORMATS:
-      write_swapped(file, file_end, out);
-      return;
-
-    default:
-      return;
+  if (translation_option == NO_TRANSLATION) {
 
   }
 
-  fclose(out);
+  else if (translation_option == FORMAT_ONE_TO_TWO) {
+    write_one_to_two(file, file_end, out);
 
+  }
+
+  else if (translation_option == FORMAT_TWO_TO_ONE){
+    write_two_to_one(file, file_end, out);
+
+  }
+
+  else if (translation_option == SWAP_FORMATS){
+    write_swapped(file, file_end, out);
+  }
+
+  fclose(out);
 }
 
 uint16_t read_int16(unsigned char** file) {
@@ -281,28 +278,28 @@ void write_two_to_one(unsigned char* curr_pos, unsigned char* file_end, FILE* fi
 		uint8_t type = *curr_pos++;
 		if (type == FORMAT_ONE_TYPE) {
 			uint8_t amount = *curr_pos++;
-			printf("%s ", to_three_byte_str(amount));
+			fprintf(file, "%s ", to_three_byte_str(amount));
 			for (int i = 0; i < amount - 1; i++) {
-				printf("%d ", read_int16(&curr_pos));
+				fprintf(file, "%d ", read_int16(&curr_pos));
 			}
-			printf("%d\n", read_int16(&curr_pos));
+			fprintf(file, "%d\n", read_int16(&curr_pos));
 		}
 		else if (type == FORMAT_TWO_TYPE) {
 			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
 			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
 			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
-			printf("%s ", amount);
+			fprintf(file, "%s ", amount);
 			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
 			while (!is_type(*curr_pos)) {
 				char c = *curr_pos++;
 				if (c == ',') {
-					printf("%c", ' ');
+					fprintf(file, "%c", ' ');
 				}
 				else {
-					printf("%c", c);
+					fprintf(file, "%c", c);
 				}
 			}
-			printf("%c", '\n');
+			fprintf(file, "%c", '\n');
 		}
 	}
 }
@@ -313,28 +310,28 @@ void write_swapped(unsigned char* curr_pos, unsigned char* file_end, FILE* file)
 		uint8_t type = *curr_pos++;
 		if (type == FORMAT_ONE_TYPE) {
 			uint8_t amount = *curr_pos++;
-			printf("%s ", to_three_byte_str(amount));
+			fprintf(file, "%s ", to_three_byte_str(amount));
 			for (int i = 0; i < amount - 1; i++) {
-				printf("%d,", read_int16(&curr_pos));
+				fprintf(file, "%d,", read_int16(&curr_pos));
 			}
-			printf("%d\n", read_int16(&curr_pos));
+			fprintf(file, "%d\n", read_int16(&curr_pos));
 		}
 		else if (type == FORMAT_TWO_TYPE) {
 			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
 			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
 			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
-			printf("%s ", amount);
+			fprintf(file, "%s ", amount);
 			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
 			while (!is_type(*curr_pos)) {
 				char c = *curr_pos++;
 				if (c == ',') {
-					printf("%c", ' ');
+					fprintf(file, "%c", ' ');
 				}
 				else {
-					printf("%c", c);
+					fprintf(file, "%c", c);
 				}
 			}
-			printf("%c", '\n');
+			fprintf(file, "%c", '\n');
 		}
 	}
 }
