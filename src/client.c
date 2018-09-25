@@ -34,51 +34,75 @@ bool does_exist(const char*);
 
 bool is_empty(const char*);
 
-int main(int argc, char const *argv[])
-{
-    if (argc < NUM_ARGS_NEEDED) {
-		fprintf(stderr, "ERROR, 5 args needed\n");
-		exit(1);
-	}
+int new_client(const char*, const char*);
 
-    int socket_fd = 0;
+char* send_request(int, uint8_t, const char*, const char*);
+
+int main(int argc, char const *argv[]) {
+  if (argc < NUM_ARGS_NEEDED) {
+    fprintf(stderr, "ERROR, 5 args needed\n");
+    exit(1);
+  }
+
+  uint8_t to_format = atoi(argv[TO_FORMAT]);
+  if (to_format < 0 || to_format > 3) {
+    fprintf(stderr, "ERROR, TO FORMAT OUT OF RANGE\n");
+    exit(1);
+  }
+  const char* file_path = argv[FILE_PATH];
+  if (!does_exist(file_path)) {
+      fprintf(stderr, "ERROR, FILE DOES NOT EXIST\n");
+      exit(1);
+  }
+  if (is_empty(file_path)){
+      fprintf(stderr, "ERROR, FILE IS EMPTY\n");
+      exit(1);
+  }
+
+  int socket_fd = new_client(argv[SERVER_IP], argv[SERVER_PORT]);
+  char* response = send_request(socket_fd, to_format, file_path, argv[TO_NAME]);
+  printf("Response: %s\n", response);
+  free(response);
+}
+
+
+char* send_request(int socket_fd, uint8_t to_format, const char* file_path, const char* to_name){
+  uint64_t file_size = get_file_size(file_path);
+  char* file = get_file(file_path);
+  uint64_t message_size = get_message_size(file_size, to_name, to_format);
+  char* message = create_message(file, file_size, to_name, to_format);
+  send(socket_fd, message, message_size, NO_FLAGS);
+
+  unsigned char* response_message = malloc(RESPONSE_SIZE + 1);
+  response_message[RESPONSE_SIZE] = '\0';
+  recv(socket_fd, response_message, RESPONSE_SIZE, NO_FLAGS);
+  close(socket_fd);
+  free(file);
+  free(message);
+  return response_message;
+}
+
+int new_client(const char* server_ip, const char* server_port){
+     int socket_fd = 0;
     if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         puts("SOCKET MAKE ERROR");
+        exit(1);
     }
 
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(atoi(argv[SERVER_PORT]));
+    server_address.sin_port = htons(atoi(server_port));
 
-    if (inet_aton(argv[SERVER_IP], &server_address.sin_addr) <= 0){
+    if (inet_aton(server_ip, &server_address.sin_addr) <= 0){
         puts("INET ERROR");
+        exit(1);
     }
 
     if ( (connect( socket_fd, (struct sockaddr*) &server_address, sizeof(server_address) )) < 0){
         puts("CONNECT ERROR");
+        exit(1);
     }
-    else{
-        const char* file_path = argv[FILE_PATH];
-        if (!does_exist(file_path)) {
-            fprintf(stderr, "ERROR, FILE DOES NOT EXIST\n");
-		    exit(1);
-        }
-        if (is_empty(file_path)){
-            fprintf(stderr, "ERROR, FILE IS EMPTY\n");
-		    exit(1);
-        }
-        const char* to_name = argv[TO_NAME];
-        uint8_t to_format = atoi(argv[TO_FORMAT]);
-        uint64_t file_size = get_file_size(file_path);
-        char* file = get_file(file_path);
-        uint64_t message_size = get_message_size(file_size, to_name, to_format);
-        char* message = create_message(file, file_size, to_name, to_format);
-        send(socket_fd, message, message_size, NO_FLAGS);
-        unsigned char response_message[RESPONSE_SIZE];
-        recv(socket_fd, response_message, RESPONSE_SIZE, NO_FLAGS);
-        puts(response_message);
-    }
-    close(socket_fd);
+    return socket_fd;
 }
 
 bool does_exist(const char* file_path){
@@ -94,7 +118,7 @@ bool is_empty(const char* file_path){
 char* create_message(const char* file, uint64_t file_size, const char* to_name, uint8_t to_format){
     // create array to be sent to the server
     uint64_t message_size = get_message_size(file_size, to_name, to_format);
-   
+
     char* message = malloc(message_size + 1);
     message[message_size] = '\0';
     char* curr_pos = message; // keep track of where we are in the array
@@ -102,7 +126,7 @@ char* create_message(const char* file, uint64_t file_size, const char* to_name, 
 
     memcpy(curr_pos, &to_format, sizeof(to_format)); // params (destination, source, num bytes to read)
     curr_pos += sizeof(to_format);
-    
+
     file_size = htonl(file_size); // reorder arrangement of bytes
     memcpy(curr_pos, &file_size, sizeof(file_size));
     file_size = ntohl(file_size); // put it back
@@ -124,7 +148,7 @@ char* create_message(const char* file, uint64_t file_size, const char* to_name, 
 }
 
 uint64_t get_message_size(uint64_t file_size, const char* new_name, uint8_t to_format){
-    return strlen(new_name) + sizeof(uint16_t) 
+    return strlen(new_name) + sizeof(uint16_t)
     + file_size + sizeof(file_size)
     + sizeof(to_format);
 }
@@ -143,5 +167,5 @@ char* get_file(const char* file_name){
 uint64_t get_file_size(const char* file_name){
     struct stat st;
     stat(file_name, &st);
-    return st.st_size;  
+    return st.st_size;
 }
