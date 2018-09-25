@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h> // for close
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 #define NO_FLAGS 0
 #define SERVER_IP 1
@@ -23,11 +24,15 @@
 
 uint64_t get_file_size(const char*);
 
-uint64_t get_message_size(const char*, const char*, uint8_t);
+uint64_t get_message_size(uint64_t, const char*, uint8_t);
 
-char* create_message(const char*, const char*, uint8_t);
+char* create_message(const char*, uint64_t, const char*, uint8_t);
 
 char* get_file(const char*);
+
+bool does_exist(const char*);
+
+bool is_empty(const char*);
 
 int main(int argc, char const *argv[])
 {
@@ -54,10 +59,20 @@ int main(int argc, char const *argv[])
     }
     else{
         const char* file_path = argv[FILE_PATH];
+        if (!does_exist(file_path)) {
+            fprintf(stderr, "ERROR, FILE DOES NOT EXIST\n");
+		    exit(1);
+        }
+        if (is_empty(file_path)){
+            fprintf(stderr, "ERROR, FILE IS EMPTY\n");
+		    exit(1);
+        }
         const char* to_name = argv[TO_NAME];
         uint8_t to_format = atoi(argv[TO_FORMAT]);
-        uint64_t message_size = get_message_size(file_path, to_name, to_format);
-        char* message = create_message(file_path, to_name, to_format);
+        uint64_t file_size = get_file_size(file_path);
+        char* file = get_file(file_path);
+        uint64_t message_size = get_message_size(file_size, to_name, to_format);
+        char* message = create_message(file, file_size, to_name, to_format);
         send(socket_fd, message, message_size, NO_FLAGS);
         unsigned char response_message[RESPONSE_SIZE];
         recv(socket_fd, response_message, RESPONSE_SIZE, NO_FLAGS);
@@ -66,9 +81,20 @@ int main(int argc, char const *argv[])
     close(socket_fd);
 }
 
-char* create_message(const char* file_path, const char* to_name, uint8_t to_format){
+bool does_exist(const char* file_path){
+    FILE* file = fopen(file_path, "r");
+    bool does_exist = file != NULL;
+    fclose(file);
+    return does_exist;
+}
+
+bool is_empty(const char* file_path){
+    return get_file_size(file_path) == 0;
+}
+char* create_message(const char* file, uint64_t file_size, const char* to_name, uint8_t to_format){
     // create array to be sent to the server
-    uint64_t message_size = get_message_size(file_path, to_name, to_format);
+    uint64_t message_size = get_message_size(file_size, to_name, to_format);
+   
     char* message = malloc(message_size + 1);
     message[message_size] = '\0';
     char* curr_pos = message; // keep track of where we are in the array
@@ -77,13 +103,11 @@ char* create_message(const char* file_path, const char* to_name, uint8_t to_form
     memcpy(curr_pos, &to_format, sizeof(to_format)); // params (destination, source, num bytes to read)
     curr_pos += sizeof(to_format);
     
-    uint64_t file_size = get_file_size(file_path);
     file_size = htonl(file_size); // reorder arrangement of bytes
     memcpy(curr_pos, &file_size, sizeof(file_size));
     file_size = ntohl(file_size); // put it back
     curr_pos += sizeof(file_size);
 
-    const char* file = get_file(file_path);
     memcpy(curr_pos, file, file_size);
     curr_pos += file_size;
 
@@ -99,9 +123,9 @@ char* create_message(const char* file_path, const char* to_name, uint8_t to_form
     return message;
 }
 
-uint64_t get_message_size(const char* file_path, const char* new_name, uint8_t to_format){
+uint64_t get_message_size(uint64_t file_size, const char* new_name, uint8_t to_format){
     return strlen(new_name) + sizeof(uint16_t) 
-    + get_file_size(file_path) + sizeof(uint64_t)
+    + file_size + sizeof(file_size)
     + sizeof(to_format);
 }
 
@@ -110,11 +134,9 @@ char* get_file(const char* file_name){
     char* buffer = malloc(file_size + 1);
     buffer[file_size] = '\0';
     FILE* file = fopen(file_name, "r");
-    if (file == NULL){
-        puts("ERROR READING FILE");
-        exit(-1);
-    }
+    if (file == NULL){  return NULL; }
     fread(buffer, sizeof(*file_name), file_size, file);
+    fclose(file);
     return buffer;
 }
 
