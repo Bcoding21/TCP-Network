@@ -184,7 +184,6 @@ Message read_message(int socket_fd){
 
 void transform_and_write(uint8_t translation_option, unsigned char* file, uint64_t file_size, unsigned char* file_name){
 
-
   printf("File name: %s\n", file_name);
   FILE* out = fopen(file_name, "w");
   if (!out){
@@ -195,17 +194,15 @@ void transform_and_write(uint8_t translation_option, unsigned char* file, uint64
   unsigned char* file_end = file + file_size;
 
   if (translation_option == NO_TRANSLATION) {
-
+    write_no_change(file, file_end, out);
   }
 
   else if (translation_option == FORMAT_ONE_TO_TWO) {
     write_one_to_two(file, file_end, out);
-
   }
 
   else if (translation_option == FORMAT_TWO_TO_ONE){
     write_two_to_one(file, file_end, out);
-
   }
 
   else if (translation_option == SWAP_FORMATS){
@@ -317,19 +314,52 @@ void write_swapped(unsigned char* curr_pos, unsigned char* file_end, FILE* file)
 			fprintf(file, "%d\n", read_int16(&curr_pos));
 		}
 		else if (type == FORMAT_TWO_TYPE) {
+			puts("ON THE SECOND TYPE");
+			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
+			puts("1");
+			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
+			puts("2");
+			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
+			printf("AMOUTN: %s\n", amount);
+			puts("3");
+			fprintf(file, "%s ", amount);
+			puts("4");
+			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
+			while (!is_type(*curr_pos)) {
+				char c = *curr_pos++;
+				puts("HERE");
+				if (c == ','){
+					fprintf(file, "%c", ' ');
+				}
+				else{
+					 fprintf(file, "%c", c);
+				}
+				puts("DOUBLE HERE");
+			}
+			fprintf(file, "%c", '\n');
+		}
+	}
+}
+
+void write_no_change(unsigned char* curr_pos, unsigned char* file_end, FILE* file){
+  while (curr_pos < file_end) {
+		uint8_t type = *curr_pos++;
+		if (type == FORMAT_ONE_TYPE) {
+			uint8_t amount = *curr_pos++;
+			fprintf(file, "%s ", to_three_byte_str(amount));
+			for (int i = 0; i < amount - 1; i++) {
+				fprintf(file, "%d ", read_int16(&curr_pos));
+			}
+			fprintf(file, "%d\n", read_int16(&curr_pos));
+		}
+		else if (type == FORMAT_TWO_TYPE) {
 			char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
 			amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
 			memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
 			fprintf(file, "%s ", amount);
 			curr_pos += FORMAT_TWO_AMOUNT_SIZE;
 			while (!is_type(*curr_pos)) {
-				char c = *curr_pos++;
-				if (c == ',') {
-					fprintf(file, "%c", ' ');
-				}
-				else {
-					fprintf(file, "%c", c);
-				}
+				fprintf(file, "%c", *curr_pos++);
 			}
 			fprintf(file, "%c", '\n');
 		}
