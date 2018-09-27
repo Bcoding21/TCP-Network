@@ -11,6 +11,7 @@
 #include <unistd.h> // for close
 #include <arpa/inet.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 #define NO_FLAGS 0
 #define SERVER_IP 1
@@ -24,9 +25,9 @@
 
 uint64_t get_file_size(const char*);
 
-uint64_t get_message_size(uint64_t, const char*, uint8_t);
+uint64_t get_message_size(const char*, const char*, uint8_t);
 
-char* create_message(const char*, uint64_t, const char*, uint8_t);
+unsigned char* create_message(const char*, const char*, uint8_t);
 
 char* get_file(const char*);
 
@@ -34,9 +35,8 @@ bool does_exist(const char*);
 
 bool is_empty(const char*);
 
-int new_client(const char*, const char*);
+int new_socket(const char*, const char*);
 
-char* send_request(int, uint8_t, const char*, const char*);
 
 int main(int argc, char const *argv[]) {
   if (argc < NUM_ARGS_NEEDED) {
@@ -59,30 +59,29 @@ int main(int argc, char const *argv[]) {
       exit(1);
   }
 
-  int socket_fd = new_client(argv[SERVER_IP], argv[SERVER_PORT]);
-  char* response = send_request(socket_fd, to_format, file_path, argv[TO_NAME]);
-  printf("Response: %s\n", response);
-  free(response);
+  int socket = new_socket(argv[SERVER_IP], argv[SERVER_PORT]);
+  
+  uint64_t message_size = get_message_size(file_path, argv[TO_NAME], to_format);
+  unsigned char* message = create_message(file_path, argv[TO_NAME], to_format);
+  
+  send(socket, message, message_size, NO_FLAGS);
+  char response[RESPONSE_SIZE];
+  recv(socket, response, RESPONSE_SIZE, NO_FLAGS);
+  puts(response);
 }
 
-
-char* send_request(int socket_fd, uint8_t to_format, const char* file_path, const char* to_name){
-  uint64_t file_size = get_file_size(file_path);
-  char* file = get_file(file_path);
-  uint64_t message_size = get_message_size(file_size, to_name, to_format);
-  char* message = create_message(file, file_size, to_name, to_format);
-  send(socket_fd, message, message_size, NO_FLAGS);
-
-  unsigned char* response_message = malloc(RESPONSE_SIZE + 1);
-  response_message[RESPONSE_SIZE] = '\0';
-  recv(socket_fd, response_message, RESPONSE_SIZE, NO_FLAGS);
-  close(socket_fd);
-  free(file);
-  free(message);
-  return response_message;
+bool does_exist(const char* file_path){
+    FILE* file = fopen(file_path, "r");
+    bool does_exist = file != NULL;
+    fclose(file);
+    return does_exist;
 }
 
-int new_client(const char* server_ip, const char* server_port){
+bool is_empty(const char* file_path){
+    return get_file_size(file_path) == 0;
+}
+
+int new_socket(const char* server_ip, const char* server_port){
      int socket_fd = 0;
     if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         puts("SOCKET MAKE ERROR");
@@ -105,34 +104,28 @@ int new_client(const char* server_ip, const char* server_port){
     return socket_fd;
 }
 
-bool does_exist(const char* file_path){
-    FILE* file = fopen(file_path, "r");
-    bool does_exist = file != NULL;
-    fclose(file);
-    return does_exist;
+uint64_t get_file_size(const char* file_name){
+    struct stat st;
+    stat(file_name, &st);
+    return st.st_size;
 }
 
-bool is_empty(const char* file_path){
-    return get_file_size(file_path) == 0;
-}
-char* create_message(const char* file, uint64_t file_size, const char* to_name, uint8_t to_format){
-    // create array to be sent to the server
-    uint64_t message_size = get_message_size(file_size, to_name, to_format);
+unsigned char* create_message(const char* file_path, const char* to_name, uint8_t to_format){
+    uint64_t file_size = get_file_size(file_path);
+    uint64_t message_size = get_message_size(file_path, to_name, to_format);
+    unsigned char* message = malloc(message_size);
+    unsigned char* curr_pos = message;
 
-    char* message = malloc(message_size + 1);
-    message[message_size] = '\0';
-    char* curr_pos = message; // keep track of where we are in the array
-                              // because we will increment as we add data
+    memcpy(curr_pos++, &to_format, sizeof(to_format));
 
-    memcpy(curr_pos, &to_format, sizeof(to_format)); // params (destination, source, num bytes to read)
-    curr_pos += sizeof(to_format);
-
-    file_size = htonl(file_size); // reorder arrangement of bytes
+    file_size = htonl(file_size); // set endian
     memcpy(curr_pos, &file_size, sizeof(file_size));
-    file_size = ntohl(file_size); // put it back
+    file_size = ntohl(file_size); // set back to original endian
     curr_pos += sizeof(file_size);
 
-    memcpy(curr_pos, file, file_size);
+    FILE* file = fopen(file_path, "rb");
+    fread(curr_pos, sizeof(char), file_size, file); // read file into our message
+    fclose(file);
     curr_pos += file_size;
 
     uint16_t to_name_size = strlen(to_name);
@@ -142,30 +135,13 @@ char* create_message(const char* file, uint64_t file_size, const char* to_name, 
     curr_pos += sizeof(to_name_size);
 
     memcpy(curr_pos, to_name, to_name_size);
-    curr_pos += to_name_size;
-
+    printf("To name: %s\n", to_name);
     return message;
 }
 
-uint64_t get_message_size(uint64_t file_size, const char* new_name, uint8_t to_format){
-    return strlen(new_name) + sizeof(uint16_t)
-    + file_size + sizeof(file_size)
-    + sizeof(to_format);
-}
-
-char* get_file(const char* file_name){
-    uint64_t file_size = get_file_size(file_name);
-    char* buffer = malloc(file_size + 1);
-    buffer[file_size] = '\0';
-    FILE* file = fopen(file_name, "r");
-    if (file == NULL){  return NULL; }
-    fread(buffer, sizeof(*file_name), file_size, file);
-    fclose(file);
-    return buffer;
-}
-
-uint64_t get_file_size(const char* file_name){
-    struct stat st;
-    stat(file_name, &st);
-    return st.st_size;
+uint64_t get_message_size(const char* file_path, const char* new_name, uint8_t to_format){
+    uint64_t file_size = get_file_size(file_path);
+    uint16_t file_name_size = strlen(new_name);
+    return sizeof(to_format) + sizeof(file_name_size) + file_name_size
+    + sizeof(file_size) + file_size;
 }
