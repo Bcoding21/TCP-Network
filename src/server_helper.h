@@ -31,13 +31,15 @@ typedef struct Message {
     uint8_t trans_type;
     uint64_t file_size;
     unsigned char* file;
-    uint64_t name_length;
+    uint16_t name_length;
     unsigned char* file_name;
 }Message;
 
 extern int errno;
 
 void read_from_socket(int, void*, uint64_t);
+
+void write_to_socket(int, void*, uint64_t);
 
 uint8_t read_trans_type(int);
 

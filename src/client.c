@@ -71,26 +71,42 @@ int main(int argc, char const *argv[]) {
     unsigned char* response = read_bytes(socket, RESPONSE_SIZE);
     puts(response);
     free(response);
-
+    if (close(socket) < 0){
+        char * error_message = strerror(errno);
+        perror(error_message);
+        exit(-1);
+    }
     return 0;
 }
 
 unsigned char* read_bytes(int socket,  uint64_t response_size){
     unsigned char* response = malloc(response_size + 1);
     response[response_size] = '\0';
-    unsigned char* begin = response;
-    unsigned char* end = response + response_size;
-    int bytes_read;
-    do {
-        bytes_read = read(socket, begin, 1);
-        begin += bytes_read;
-    }while(bytes_read != 0 && begin < end);
+    unsigned char* curr_pos = response;
+    for (int i = 0; i < response_size; i++){
+        int bytes_read = read(socket, curr_pos++, 1);
+        if (bytes_read < 0) {
+            int err = errno;
+            if (errno == EINTR){
+                continue;
+            }
+            perror(strerror(errno));
+            exit(-1);
+        }
+        if (bytes_read == 0){
+            return response;
+        }
+    }
     return response;
 }
 
 void write_bytes(int socket, unsigned char* message, uint64_t message_size){
     do {
         int bytes_written = write(socket, message, message_size);
+        if (bytes_written < 0){
+            char * error_message = strerror(errno);
+            perror(error_message);
+        }
         message += bytes_written;
         message_size -= bytes_written;
     }while(message_size != 0);

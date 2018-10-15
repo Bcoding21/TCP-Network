@@ -42,19 +42,16 @@ void run_server(int server_socket_fd) {
             perror(error_message);
             exit(-1);
         }
+        Message message = read_message(client);
+        unsigned char* file_begin = message.file;
+        unsigned char* file_end = message.file + message.file_size;
+        bool is_good = is_good_format(file_begin, file_end);
+        if (is_good){
+           write_to_socket(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE));
+           transform_and_write(message.trans_type, message.file, message.file_size, message.file_name);
+        }
         else {
-            Message message = read_message(client);
-            unsigned char* file_begin = message.file;
-            unsigned char* file_end = message.file + message.file_size;
-            bool is_good = is_good_format(file_begin, file_end);
-            if (is_good){
-                send(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE), NO_FLAGS);
-                transform_and_write(message.trans_type, message.file, message.file_size, message.file_name);
-            }
-            else{
-                send(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE), NO_FLAGS);
-            }
-
+            write_to_socket(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE));
         }
         if (close(client) < 0) {
             char * error_message = strerror(errno);
@@ -64,36 +61,47 @@ void run_server(int server_socket_fd) {
     }
 }
 
-Message read_message(int socket_fd){
+Message read_message(int fd){
     Message message;
-    read_from_socket(socket, &message.trans_type, sizeof(message.trans_type));
-    read_from_socket(socket, &message.file_size, sizeof(message.file_size));
+    read_from_socket(fd, &message.trans_type, sizeof(message.trans_type));
+    read_from_socket(fd, &message.file_size, sizeof(message.file_size));
     message.file_size = ntohl(message.file_size);
-    read_from_socket(socket, message.file, message.file_size);
-    read_from_socket(socket, &message.name_length, sizeof(message.name_length));
+    read_from_socket(fd, message.file, message.file_size);
+    read_from_socket(fd, &message.name_length, sizeof(message.name_length));
     message.name_length = ntohs(message.name_length);
-    read_from_socket(socket, message.file_name, message.name_length);
+    read_from_socket(fd, message.file_name, message.name_length);
     puts(message.file_name);
-    return message;
+    return message; 
 }
 
-void read_from_socket(int socket, void* dest, uint64_t num_bytes){
-    int bytes_read;
-    do {
-        if (bytes_read = read(socket, dest, num_bytes) < 0){
-            char * error_message = strerror(errno);
-            perror(error_message);
-            printf("FIle descriptor: %d\n", socket);
-            if (close(socket) < 0){
-               char * error_message = strerror(errno);
-               perror(error_message);
+void read_from_socket(int fd, void* dest, uint64_t num_bytes_to_read){
+    for (int i = 0; i < num_bytes_to_read; i++){
+        int bytes_read = read(fd, dest++, 1);
+        if (bytes_read < 0) {
+            int err = errno;
+            if (errno == EINTR){
+                continue;
             }
+            perror(strerror(errno));
             exit(-1);
         }
-        printf("Bytes read: %d\n", bytes_read);
-        dest += bytes_read;
-        num_bytes -= bytes_read;
-    }while(num_bytes != 0);
+        if (bytes_read == 0){
+            return;
+        }
+    }
+}
+
+void write_to_socket(int socket, void* data, uint64_t data_size){
+    do {
+        int bytes_written = write(socket, data, data_size);
+        if (bytes_written < 0){
+            char * error_message = strerror(errno);
+            perror(error_message);
+            exit(-1);
+        }
+        data += bytes_written;
+        data_size -= bytes_written;
+    } while(data_size != 0);
 }
 
 /**
