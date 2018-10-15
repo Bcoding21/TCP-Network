@@ -4,13 +4,12 @@
 
 #include "server_helper.h"
 
-
-
-
 int create_server(uint16_t port_number){
     int server = 0;
     if ((server = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        puts("SOCKET FAILURE");
+         char * error_message = strerror(errno);
+         perror(error_message);
+         exit(-1);
     }
 
     struct sockaddr_in server_address;
@@ -20,14 +19,18 @@ int create_server(uint16_t port_number){
 
 
     if (bind(server, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) {
-        puts("BIND FAILURE");
+        char * error_message = strerror(errno);
+        perror(error_message);
+        exit(-1);
     }
     return server;
 }
 
 void run_server(int server_socket_fd) {
     if (listen(server_socket_fd, 3) < 0) {
-        puts("LISTEN ERROR");
+        char * error_message = strerror(errno);
+        perror(error_message);
+        exit(-1);
     }
     struct sockaddr_in client_address;
     int address_size = sizeof(client_address);
@@ -35,9 +38,10 @@ void run_server(int server_socket_fd) {
 
     while (1) {
         if ((client = accept(server_socket_fd, (struct sockaddr*) &client_address, &address_size)) < 0) {
-            puts("ACCEPT ERROR");
+            char * error_message = strerror(errno);
+            perror(error_message);
+            exit(-1);
         }
-        else {
             Message message = read_message(client);
             unsigned char* file_begin = message.file;
             unsigned char* file_end = message.file + message.file_size;
@@ -49,13 +53,15 @@ void run_server(int server_socket_fd) {
             else{
                 write_socket(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE));
             }
-
-        }
+        
         if (close(client) < 0) {
-            puts("CONNECTION CLOSE EROOR");
+            char * error_message = strerror(errno);
+            perror(error_message);
+            exit(-1);
         }
     }
 }
+
 
 uint8_t read_trans_type(int socket_fd){
     uint8_t trans_type;
@@ -121,6 +127,16 @@ char* read_file_name(int socket_fd, uint16_t name_length){
     return new_name;
 }
 
+Message read_message(int fd){
+    Message message;
+    message.trans_type = read_trans_type(fd);
+    message.file_size = read_file_size(fd);
+    message.file = read_file(fd, message.file_size);
+    message.name_length = read_file_name_length(fd);
+    message.file_name  = read_file_name(fd, message.name_length);
+    return message;
+}
+
 int write_socket(int fd, void* data , int data_size) {
     while (data_size != 0){
         int bytes_written = write(fd, data, data_size);
@@ -136,10 +152,10 @@ int write_socket(int fd, void* data , int data_size) {
     }
 }
 
+
 bool is_good_format(unsigned char* curr_file_pos, unsigned char* end){
     while (curr_file_pos < end) {
         uint8_t type = *curr_file_pos++;
-        if (type == (uint8_t)'\n') { continue; }
         if (!is_type(type)) { return false; }
         int16_t bytes_read = (type == FORMAT_ONE_TYPE) ?
                              get_format_one_byte_count(curr_file_pos, end) :
@@ -150,20 +166,36 @@ bool is_good_format(unsigned char* curr_file_pos, unsigned char* end){
     return curr_file_pos == end;
 }
 
+/**
+ * Determines if the char passed in is a byte
+ * denoting the type of the current line.
+ * Must be equal to the integer 0 or 1.
+ * */
 bool is_type(unsigned char type){
     return type == FORMAT_ONE_TYPE || type == FORMAT_TWO_TYPE;
 }
 
+/**
+ * Calculates the amount of bytes a format one line should have.
+ * */
 uint16_t get_format_one_byte_count(unsigned char* curr_file_pos, unsigned char* file_end){
     uint8_t amount = *curr_file_pos;
     unsigned char* line_end = curr_file_pos + get_format_one_length(amount);
     return (line_end > file_end) ? NO_BYTES_READ : (line_end - curr_file_pos);
 }
 
+/**
+ * Determines the length of format 1 line based on
+ * the amount of numbers in the line.
+ * */
 uint16_t get_format_one_length(uint8_t amount){
     return  sizeof(amount) + amount * FORMAT_ONE_NUM_SIZE;
 }
 
+/**
+ * Returns byte count of format two line by reading
+ * the numbers in the line.
+ * */
 uint16_t get_format_two_byte_count(unsigned char* curr_file_pos, unsigned char* file_end){
     unsigned char* line_pos = curr_file_pos;
     uint32_t amount = get_str_as_int32(line_pos, line_pos + FORMAT_TWO_AMOUNT_SIZE);
@@ -216,19 +248,8 @@ uint16_t to_int16(uint8_t greater_bits, uint8_t lower_bits){
     return (number << 8) | lower_bits;
 }
 
-Message read_message(int socket_fd){
-    Message message;
-    message.trans_type = read_trans_type(socket_fd);
-    message.file_size = read_file_size(socket_fd);
-    message.file = read_file(socket_fd, message.file_size);
-    message.name_length = read_file_name_length(socket_fd);
-    message.file_name = read_file_name(socket_fd, message.name_length);
-    return message;
-}
-
 void transform_and_write(uint8_t translation_option, unsigned char* file, uint64_t file_size, unsigned char* file_name){
 
-    printf("File name: %s\n", file_name);
     FILE* out = fopen(file_name, "w");
     if (!out){
         puts("CANT OPEN FILE");
@@ -357,11 +378,8 @@ void write_swapped(unsigned char* curr_pos, unsigned char* file_end, FILE* file)
             fprintf(file, "%d\n", read_int16(&curr_pos));
         }
         else if (type == FORMAT_TWO_TYPE) {
-            puts("ON THE SECOND TYPE");
             char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
-            puts("1");
             amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
-            puts("2");
             memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
             printf("AMOUTN: %s\n", amount);
             puts("3");
@@ -370,14 +388,12 @@ void write_swapped(unsigned char* curr_pos, unsigned char* file_end, FILE* file)
             curr_pos += FORMAT_TWO_AMOUNT_SIZE;
             while (!is_type(*curr_pos)) {
                 char c = *curr_pos++;
-                puts("HERE");
                 if (c == ','){
                     fprintf(file, "%c", ' ');
                 }
                 else{
                     fprintf(file, "%c", c);
                 }
-                puts("DOUBLE HERE");
             }
             fprintf(file, "%c", '\n');
         }
@@ -399,7 +415,7 @@ void write_no_change(unsigned char* curr_pos, unsigned char* file_end, FILE* fil
             char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
             amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
             memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
-            fprintf(file, "%s ", amount);
+            fprintf(file, "%s", amount);
             curr_pos += FORMAT_TWO_AMOUNT_SIZE;
             while (!is_type(*curr_pos)) {
                 fprintf(file, "%c", *curr_pos++);

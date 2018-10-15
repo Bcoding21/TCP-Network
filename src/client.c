@@ -1,4 +1,3 @@
-
 // Client side C/C++ program to demonstrate Socket programming
 #include <stdio.h>
 #include <sys/socket.h>
@@ -29,19 +28,23 @@ extern int errno;
 
 unsigned char* read_response(int, int);
 
+extern int errno;
+
 uint64_t get_file_size(const char*);
 
 uint64_t get_message_size(const char*, const char*, uint8_t);
 
 unsigned char* create_message(const char*, const char*, uint8_t);
 
-char* get_file(const char*);
-
 bool does_exist(const char*);
 
 bool is_empty(const char*);
 
-int new_socket(const char*, const char*);
+int init_socket(const char *, const char *);
+
+void write_bytes(int, unsigned char*, uint64_t);
+
+unsigned char* read_bytes(int, uint64_t);
 
 
 int main(int argc, char const *argv[]) {
@@ -65,7 +68,7 @@ int main(int argc, char const *argv[]) {
       exit(1);
   }
 
-  int socket = new_socket(argv[SERVER_IP], argv[SERVER_PORT]);
+  int socket = init_socket(argv[SERVER_IP], argv[SERVER_PORT]);
   
   uint64_t message_size = get_message_size(file_path, argv[TO_NAME], to_format);
   unsigned char* message = create_message(file_path, argv[TO_NAME], to_format);
@@ -87,11 +90,12 @@ bool is_empty(const char* file_path){
     return get_file_size(file_path) == 0;
 }
 
-int new_socket(const char* server_ip, const char* server_port){
-     int socket_fd = 0;
+int init_socket(const char *server_ip, const char *server_port){
+    int socket_fd = 0;
     if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-        puts("SOCKET MAKE ERROR");
-        exit(1);
+        char * error_message = strerror(errno);
+        perror(error_message);
+        exit(-1);
     }
 
     struct sockaddr_in server_address;
@@ -99,13 +103,15 @@ int new_socket(const char* server_ip, const char* server_port){
     server_address.sin_port = htons(atoi(server_port));
 
     if (inet_aton(server_ip, &server_address.sin_addr) <= 0){
-        puts("INET ERROR");
-        exit(1);
+        char * error_message = strerror(errno);
+        perror(error_message);
+        exit(-1);
     }
 
     if ( (connect( socket_fd, (struct sockaddr*) &server_address, sizeof(server_address) )) < 0){
-        puts("CONNECT ERROR");
-        exit(1);
+        char * error_message = strerror(errno);
+        perror(error_message);
+        exit(-1);
     }
     return socket_fd;
 }
@@ -117,22 +123,22 @@ uint64_t get_file_size(const char* file_name){
 }
 
 unsigned char* create_message(const char* file_path, const char* to_name, uint8_t to_format){
-    uint64_t file_size = get_file_size(file_path);
+
     uint64_t message_size = get_message_size(file_path, to_name, to_format);
     unsigned char* message = malloc(message_size);
-    unsigned char* curr_pos = message;
+    unsigned char* curr_pos = message; // used to keep track of where we are in message array as we add data
 
     memcpy(curr_pos++, &to_format, sizeof(to_format));
 
+    uint64_t file_size = get_file_size(file_path);
     file_size = htonl(file_size); // set endian
     memcpy(curr_pos, &file_size, sizeof(file_size));
     file_size = ntohl(file_size); // set back to original endian
     curr_pos += sizeof(file_size);
 
     FILE* file = fopen(file_path, "rb");
-    fread(curr_pos, sizeof(char), file_size, file); // read file into our message
+    curr_pos += fread(curr_pos, sizeof(char), file_size, file);
     fclose(file);
-    curr_pos += file_size;
 
     uint16_t to_name_size = strlen(to_name);
     to_name_size = htons(to_name_size);
@@ -141,7 +147,6 @@ unsigned char* create_message(const char* file_path, const char* to_name, uint8_
     curr_pos += sizeof(to_name_size);
 
     memcpy(curr_pos, to_name, to_name_size);
-    printf("To name: %s\n", to_name);
     return message;
 }
 
@@ -151,7 +156,6 @@ uint64_t get_message_size(const char* file_path, const char* new_name, uint8_t t
     return sizeof(to_format) + sizeof(file_name_size) + file_name_size
     + sizeof(file_size) + file_size;
 }
-
 
 int write_socket(int fd, void* data , int data_size) {
     while (data_size != 0){

@@ -24,13 +24,14 @@
 #define FORMAT_ONE_TO_TWO 1
 #define FORMAT_TWO_TO_ONE 2
 #define SWAP_FORMATS 3
+#define OUTPUT_FOLDER "../testData/";
 
 
 typedef struct Message {
     uint8_t trans_type;
     uint64_t file_size;
     unsigned char* file;
-    uint64_t name_length;
+    uint16_t name_length;
     unsigned char* file_name;
 }Message;
 
@@ -77,6 +78,8 @@ void run_server(int);
 int create_server(uint16_t);
 
 void transform_and_write(uint8_t, unsigned char*, uint64_t, unsigned char*);
+
+void write_no_change(unsigned char*, unsigned char*, FILE*);
 
 void write_one_to_two(unsigned char*, unsigned char*, FILE*);
 
