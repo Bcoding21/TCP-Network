@@ -43,11 +43,11 @@ void run_server(int server_socket_fd) {
             unsigned char* file_end = message.file + message.file_size;
             bool is_good = is_good_format(file_begin, file_end);
             if (is_good){
-                send(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE), NO_FLAGS);
+                write_socket(client, SUCCESS_MESSAGE, sizeof(SUCCESS_MESSAGE));
                 transform_and_write(message.trans_type, message.file, message.file_size, message.file_name);
             }
             else{
-                send(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE), NO_FLAGS);
+                write_socket(client, ERROR_MESSAGE, sizeof(ERROR_MESSAGE));
             }
 
         }
@@ -59,36 +59,82 @@ void run_server(int server_socket_fd) {
 
 uint8_t read_trans_type(int socket_fd){
     uint8_t trans_type;
-    read(socket_fd, &trans_type, sizeof(trans_type));
+    for (int i = 0; i < sizeof(trans_type); i++){
+        int bytes_read = read(socket_fd, &trans_type, 1);
+        if (bytes_read < 0){
+            if (errno == EINTR){
+                continue;
+            }
+            perror(strerror(errno));
+            exit(-1);
+        }
+    }
     return trans_type;
 }
 
 uint64_t read_file_size(int socket_fd){
     uint64_t file_size;
-    read(socket_fd, &file_size, sizeof(file_size));
+    int max_bytes = sizeof(file_size);
+    int bytes_read = 0;
+    uint64_t* buffer = &file_size;
+    while (bytes_read < max_bytes) {
+        int res  = read(socket_fd, buffer + bytes_read, max_bytes - bytes_read);
+        bytes_read += res;
+    }
+    //read(socket_fd, &file_size, sizeof(file_size));
     return ntohl(file_size);
 }
 
 unsigned char* read_file(int socket_fd, uint64_t file_size){
     unsigned char* file = malloc(file_size + 1);
     file[file_size] = '\0';
-    read(socket_fd, file, file_size);
+    int bytes_read = 0;
+    unsigned char* curr = file;
+    while (bytes_read < file_size) {
+        int res  = read(socket_fd, curr + bytes_read, file_size - bytes_read);
+        bytes_read += res;
+    }
     return file;
 }
 
 uint16_t read_file_name_length(int socket_fd){
     uint16_t name_length;
-    read(socket_fd, &name_length, sizeof(name_length));
+    int bytes_read = 0;
+    int max_bytes = sizeof(name_length);
+    uint16_t* buffer = &name_length;
+    while (bytes_read < max_bytes) {
+        int res  = read(socket_fd, buffer + bytes_read, max_bytes - bytes_read);
+        bytes_read += res;
+    }
     return ntohs(name_length);
 }
 
 char* read_file_name(int socket_fd, uint16_t name_length){
     char* new_name = malloc(name_length + 1);
     new_name[name_length] = '\0';
-    read(socket_fd, new_name, name_length);
+    int bytes_read = 0;
+   unsigned char* curr = new_name;
+    while (bytes_read < name_length) {
+        int res  = read(socket_fd, curr + bytes_read, name_length - bytes_read);
+        bytes_read += res;
+    }
     return new_name;
 }
 
+int write_socket(int fd, void* data , int data_size) {
+    while (data_size != 0){
+        int bytes_written = write(fd, data, data_size);
+        if (bytes_written < 0){
+            if (errno == EINTR){
+                bytes_written  = 0;
+            }
+            perror(strerror(errno));
+            exit(-1);
+        }
+        data_size -= bytes_written;
+        data += bytes_written;
+    }
+}
 
 bool is_good_format(unsigned char* curr_file_pos, unsigned char* end){
     while (curr_file_pos < end) {

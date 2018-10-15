@@ -8,6 +8,7 @@
 #include <sys/types.h> /* socket types */
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define FORMAT_ONE_TYPE 0
 #define FORMAT_TWO_TYPE 1
@@ -33,6 +34,9 @@ typedef struct Message {
     unsigned char* file_name;
 }Message;
 
+extern int errno;
+
+int write_socket(int, void*, int);
 
 uint8_t read_trans_type(int);
 
@@ -89,3 +93,5 @@ uint16_t to_int16(uint8_t, uint8_t);
 unsigned char* int_to_str(uint16_t);
 
 uint16_t read_int16(unsigned char**);
+
+void write_no_change(unsigned char*, unsigned char*, FILE*);

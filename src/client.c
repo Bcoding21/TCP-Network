@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <errno.h>
 
 #define NO_FLAGS 0
 #define SERVER_IP 1
@@ -22,6 +23,11 @@
 #define RESPONSE_SIZE 50
 #define NUM_ARGS_NEEDED 6
 
+int write_socket(int, void*, int);
+
+extern int errno;
+
+unsigned char* read_response(int, int);
 
 uint64_t get_file_size(const char*);
 
@@ -64,10 +70,10 @@ int main(int argc, char const *argv[]) {
   uint64_t message_size = get_message_size(file_path, argv[TO_NAME], to_format);
   unsigned char* message = create_message(file_path, argv[TO_NAME], to_format);
   
-  send(socket, message, message_size, NO_FLAGS);
-  char response[RESPONSE_SIZE];
-  recv(socket, response, RESPONSE_SIZE, NO_FLAGS);
+  write_socket(socket, message, message_size);
+  char* response = read_response(socket, RESPONSE_SIZE);
   puts(response);
+  free(response);
 }
 
 bool does_exist(const char* file_path){
@@ -144,4 +150,33 @@ uint64_t get_message_size(const char* file_path, const char* new_name, uint8_t t
     uint16_t file_name_size = strlen(new_name);
     return sizeof(to_format) + sizeof(file_name_size) + file_name_size
     + sizeof(file_size) + file_size;
+}
+
+
+int write_socket(int fd, void* data , int data_size) {
+    while (data_size != 0){
+        int bytes_written = write(fd, data, data_size);
+        if (bytes_written < 0){
+            if (errno == EINTR){
+                bytes_written  = 0;
+            }
+            perror(strerror(errno));
+            exit(-1);
+        }
+        data_size -= bytes_written;
+        data += bytes_written;
+    }
+}
+
+unsigned char* read_response(int fd, int size){
+    unsigned char* res = malloc(size + 1);
+    res[size] = '\0';
+    int bytes_read = 0;
+    unsigned char* curr = res;
+    int r = 1;
+    while (r  > 0) {
+        r  = read(fd, curr + bytes_read, size - bytes_read);
+        bytes_read += r;
+    }
+    return res;
 }
