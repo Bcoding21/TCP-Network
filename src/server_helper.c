@@ -381,10 +381,7 @@ void write_swapped(unsigned char* curr_pos, unsigned char* file_end, FILE* file)
             char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
             amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
             memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
-            printf("AMOUTN: %s\n", amount);
-            puts("3");
             fprintf(file, "%s ", amount);
-            puts("4");
             curr_pos += FORMAT_TWO_AMOUNT_SIZE;
             while (!is_type(*curr_pos)) {
                 char c = *curr_pos++;
@@ -415,7 +412,7 @@ void write_no_change(unsigned char* curr_pos, unsigned char* file_end, FILE* fil
             char amount[FORMAT_TWO_AMOUNT_SIZE + 1];
             amount[FORMAT_TWO_AMOUNT_SIZE] = '\0';
             memcpy(amount, curr_pos, FORMAT_TWO_AMOUNT_SIZE);
-            fprintf(file, "%s", amount);
+            fprintf(file, "%s ", amount);
             curr_pos += FORMAT_TWO_AMOUNT_SIZE;
             while (!is_type(*curr_pos)) {
                 fprintf(file, "%c", *curr_pos++);
